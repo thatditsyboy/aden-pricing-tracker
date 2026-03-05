@@ -1260,6 +1260,223 @@ class IntercomHealthChecker(OAuthBearerHealthChecker):
         )
 
 
+class ApifyHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Apify API tokens."""
+
+    ENDPOINT = "https://api.apify.com/v2/users/me"
+    SERVICE_NAME = "Apify"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class AsanaHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Asana personal access tokens."""
+
+    ENDPOINT = "https://app.asana.com/api/1.0/users/me"
+    SERVICE_NAME = "Asana"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class AttioHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Attio API keys (Bearer token)."""
+
+    ENDPOINT = "https://api.attio.com/v2/workspace_members"
+    SERVICE_NAME = "Attio"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class GoogleSearchConsoleHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Google Search Console OAuth2 tokens."""
+
+    ENDPOINT = "https://www.googleapis.com/webmasters/v3/sites"
+    SERVICE_NAME = "Google Search Console"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+    # 403 means authenticated but no sites — credential is still valid
+    AUTHENTICATED_ERROR_STATUSES: frozenset[int] = frozenset({403})
+    FORBIDDEN_STATUSES: frozenset[int] = frozenset()
+
+
+class HuggingFaceHealthChecker(BaseHttpHealthChecker):
+    """Health checker for HuggingFace API tokens."""
+
+    ENDPOINT = "https://huggingface.co/api/whoami-v2"
+    SERVICE_NAME = "HuggingFace"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class LinearHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Linear API keys (GraphQL POST with minimal query)."""
+
+    ENDPOINT = "https://api.linear.app/graphql"
+    SERVICE_NAME = "Linear"
+    HTTP_METHOD = "POST"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+    # 400 body errors still mean the key authenticated successfully
+    AUTHENTICATED_ERROR_STATUSES: frozenset[int] = frozenset({400})
+
+    def _build_json_body(self, credential_value: str) -> dict | None:
+        return {"query": "{ viewer { id } }"}
+
+
+class DockerHubHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Docker Hub personal access tokens.
+
+    Docker Hub's token endpoint expects a POST with a JSON body containing
+    the username and password (token). We pass the PAT as the password.
+    The username is read from the DOCKER_HUB_USERNAME env var, falling back
+    to a placeholder that will return a 401 (invalid) vs 200 (valid) in a
+    deterministic way.
+    """
+
+    ENDPOINT = "https://hub.docker.com/v2/users/login"
+    SERVICE_NAME = "Docker Hub"
+    HTTP_METHOD = "POST"
+    # Auth is embedded in the JSON body, not a header
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER  # headers still need Accept
+
+    def _build_headers(self, credential_value: str) -> dict[str, str]:
+        return {"Accept": "application/json", "Content-Type": "application/json"}
+
+    def _build_json_body(self, credential_value: str) -> dict | None:
+        username = os.getenv("DOCKER_HUB_USERNAME", "")
+        return {"username": username, "password": credential_value}
+
+
+class PipedriveHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Pipedrive API tokens (query param auth)."""
+
+    ENDPOINT = "https://api.pipedrive.com/v1/users/me"
+    SERVICE_NAME = "Pipedrive"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_QUERY
+    AUTH_QUERY_PARAM_NAME = "api_token"
+
+
+class MicrosoftGraphHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Microsoft Graph OAuth2 access tokens."""
+
+    ENDPOINT = "https://graph.microsoft.com/v1.0/me"
+    SERVICE_NAME = "Microsoft Graph"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class VercelHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Vercel access tokens."""
+
+    ENDPOINT = "https://api.vercel.com/v2/user"
+    SERVICE_NAME = "Vercel"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+
+class YouTubeHealthChecker(BaseHttpHealthChecker):
+    """Health checker for YouTube Data API v3 API keys (query param auth)."""
+
+    ENDPOINT = "https://www.googleapis.com/youtube/v3/videoCategories"
+    SERVICE_NAME = "YouTube"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_QUERY
+    AUTH_QUERY_PARAM_NAME = "key"
+
+    def _build_params(self, credential_value: str) -> dict[str, str]:
+        return {"key": credential_value, "part": "snippet", "regionCode": "US"}
+
+
+class PineconeHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Pinecone API keys (Api-Key header auth)."""
+
+    ENDPOINT = "https://api.pinecone.io/indexes"
+    SERVICE_NAME = "Pinecone"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_HEADER
+    AUTH_HEADER_NAME = "Api-Key"
+    AUTH_HEADER_TEMPLATE = "{token}"
+
+
+class PlaidHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Plaid client_id / secret (POST JSON body).
+
+    Plaid's sandbox institutions/search endpoint does not require a real
+    access-token; sending the client_id and secret in the body is sufficient
+    to verify they are valid.  We read the sibling credential from the
+    environment to build the full JSON payload.
+    """
+
+    ENDPOINT = "https://sandbox.plaid.com/institutions/search"
+    SERVICE_NAME = "Plaid"
+    HTTP_METHOD = "POST"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER  # Auth via JSON body
+
+    def _build_headers(self, credential_value: str) -> dict[str, str]:
+        return {"Accept": "application/json", "Content-Type": "application/json"}
+
+    def _build_json_body(self, credential_value: str) -> dict | None:
+        client_id = os.getenv("PLAID_CLIENT_ID", credential_value)
+        secret = os.getenv("PLAID_SECRET", credential_value)
+        return {
+            "client_id": client_id,
+            "secret": secret,
+            "query": "Chase",
+            "products": ["transactions"],
+            "country_codes": ["US"],
+        }
+
+
+class TrelloHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Trello API key/token (both sent as query params)."""
+
+    ENDPOINT = "https://api.trello.com/1/members/me"
+    SERVICE_NAME = "Trello"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_QUERY
+    AUTH_QUERY_PARAM_NAME = "key"
+
+    def _build_params(self, credential_value: str) -> dict[str, str]:
+        # credential_value is the API key; token comes from the env var
+        token = os.getenv("TRELLO_API_TOKEN", "")
+        params: dict[str, str] = {"key": credential_value}
+        if token:
+            params["token"] = token
+        return params
+
+
+class GitLabHealthChecker(BaseHttpHealthChecker):
+    """Health checker for GitLab personal access tokens."""
+
+    ENDPOINT = "https://gitlab.com/api/v4/user"
+    SERVICE_NAME = "GitLab"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_HEADER
+    AUTH_HEADER_NAME = "PRIVATE-TOKEN"
+    AUTH_HEADER_TEMPLATE = "{token}"
+
+    def _build_url(self, credential_value: str) -> str:
+        base = os.getenv("GITLAB_URL", "https://gitlab.com").rstrip("/")
+        return f"{base}/api/v4/user"
+
+
+class GreenhouseHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Greenhouse Harvest API tokens (HTTP Basic auth)."""
+
+    ENDPOINT = "https://harvest.greenhouse.io/v1/jobs"
+    SERVICE_NAME = "Greenhouse"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BASIC
+    # 200 with jobs, 403 means authenticated but no permission (key still valid)
+    AUTHENTICATED_ERROR_STATUSES: frozenset[int] = frozenset({403})
+    FORBIDDEN_STATUSES: frozenset[int] = frozenset()
+
+    def _build_params(self, credential_value: str) -> dict[str, str]:
+        return {"per_page": "1"}
+
+
+class NotionHealthChecker(BaseHttpHealthChecker):
+    """Health checker for Notion internal integration tokens."""
+
+    ENDPOINT = "https://api.notion.com/v1/users/me"
+    SERVICE_NAME = "Notion"
+    AUTH_TYPE = BaseHttpHealthChecker.AUTH_BEARER
+
+    def _build_headers(self, credential_value: str) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {credential_value}",
+            "Accept": "application/json",
+            "Notion-Version": "2022-06-28",
+        }
+
+
 # Registry of health checkers
 HEALTH_CHECKERS: dict[str, CredentialHealthChecker] = {
     "discord": DiscordHealthChecker(),
@@ -1287,6 +1504,26 @@ HEALTH_CHECKERS: dict[str, CredentialHealthChecker] = {
     "newsdata": NewsdataHealthChecker(),
     "finlight": FinlightHealthChecker(),
     "brevo": BrevoHealthChecker(),
+    # Newly added checkers
+    "apify": ApifyHealthChecker(),
+    "asana": AsanaHealthChecker(),
+    "attio": AttioHealthChecker(),
+    "google_search_console": GoogleSearchConsoleHealthChecker(),
+    "huggingface": HuggingFaceHealthChecker(),
+    "linear": LinearHealthChecker(),
+    "docker_hub": DockerHubHealthChecker(),
+    "pipedrive": PipedriveHealthChecker(),
+    "microsoft_graph": MicrosoftGraphHealthChecker(),
+    "vercel": VercelHealthChecker(),
+    "youtube": YouTubeHealthChecker(),
+    "pinecone": PineconeHealthChecker(),
+    "plaid_client_id": PlaidHealthChecker(),
+    "plaid_secret": PlaidHealthChecker(),
+    "trello_key": TrelloHealthChecker(),
+    "trello_token": TrelloHealthChecker(),
+    "gitlab_token": GitLabHealthChecker(),
+    "greenhouse_token": GreenhouseHealthChecker(),
+    "notion_token": NotionHealthChecker(),
 }
 
 
