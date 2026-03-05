@@ -99,6 +99,26 @@ class TestHealthCheckerRegistry:
             "brevo",
             "calendly_pat",
             "zoho_crm",
+            # Newly added checkers
+            "apify",
+            "asana",
+            "attio",
+            "google_search_console",
+            "huggingface",
+            "linear",
+            "docker_hub",
+            "pipedrive",
+            "microsoft_graph",
+            "vercel",
+            "youtube",
+            "pinecone",
+            "plaid_client_id",
+            "plaid_secret",
+            "trello_key",
+            "trello_token",
+            "gitlab_token",
+            "greenhouse_token",
+            "notion_token",
         }
         assert set(HEALTH_CHECKERS.keys()) == expected
 

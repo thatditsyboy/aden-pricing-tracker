@@ -1327,7 +1327,7 @@ class DockerHubHealthChecker(BaseHttpHealthChecker):
     deterministic way.
     """
 
-    ENDPOINT = "https://hub.docker.com/v2/users/login"
+    ENDPOINT = "https://hub.docker.com/v2/user/login"
     SERVICE_NAME = "Docker Hub"
     HTTP_METHOD = "POST"
     # Auth is embedded in the JSON body, not a header
